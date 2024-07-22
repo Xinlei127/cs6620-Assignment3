@@ -1,0 +1,244 @@
+{
+ "Resources": {
+  "cleanerServiceRole76567224": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SecondStack/cleaner/ServiceRole/Resource"
+   }
+  },
+  "cleanerServiceRoleDefaultPolicy1280B2E1": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:GetBucket*",
+        "s3:GetObject*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "FirstStack:ExportsOutputFnGetAttdestinationDB878FB5ArnBF6F6315"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "FirstStack:ExportsOutputFnGetAttdestinationDB878FB5ArnBF6F6315"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "s3:DeleteObject*",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::ImportValue": "FirstStack:ExportsOutputFnGetAttdestinationDB878FB5ArnBF6F6315"
+          },
+          "/*"
+         ]
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "cleanerServiceRoleDefaultPolicy1280B2E1",
+    "Roles": [
+     {
+      "Ref": "cleanerServiceRole76567224"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SecondStack/cleaner/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "cleaner6424CE15": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-058187302449-us-east-1",
+     "S3Key": "d03ad22b3cfbf32c53694aead280f5d3f9c4f2aa3b3dc41e61b83f1550bd71ca.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "DEST_BUCKET_NAME": {
+       "Fn::ImportValue": "FirstStack:ExportsOutputRefdestinationDB878FB564D19D39"
+      }
+     }
+    },
+    "Handler": "lambda_function.lambda_handler",
+    "LoggingConfig": {
+     "LogGroup": {
+      "Fn::ImportValue": "FirstStack:ExportsOutputRefCopierLogs489AF8790F5ED132"
+     }
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "cleanerServiceRole76567224",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.8"
+   },
+   "DependsOn": [
+    "cleanerServiceRoleDefaultPolicy1280B2E1",
+    "cleanerServiceRole76567224"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SecondStack/cleaner/Resource",
+    "aws:asset:path": "asset.d03ad22b3cfbf32c53694aead280f5d3f9c4f2aa3b3dc41e61b83f1550bd71ca",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "cleanerCleanerAlarmAlarmPermission2F8FF5CE": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "cleaner6424CE15",
+      "Arn"
+     ]
+    },
+    "Principal": "lambda.alarms.cloudwatch.amazonaws.com",
+    "SourceAccount": "058187302449",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "CleanerAlarm3E6C53F9",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SecondStack/cleaner/CleanerAlarmAlarmPermission"
+   }
+  },
+  "TotalSizeMetricFilterB8ACA6E8": {
+   "Type": "AWS::Logs::MetricFilter",
+   "Properties": {
+    "FilterPattern": "{ $.size = \"*\" }",
+    "LogGroupName": {
+     "Fn::ImportValue": "FirstStack:ExportsOutputRefCopierLogs489AF8790F5ED132"
+    },
+    "MetricTransformations": [
+     {
+      "DefaultValue": 0,
+      "MetricName": "TotalSize",
+      "MetricNamespace": "Custom/S3",
+      "MetricValue": "$.size"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SecondStack/TotalSizeMetricFilter/Resource"
+   }
+  },
+  "CleanerAlarm3E6C53F9": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Fn::GetAtt": [
+       "cleaner6424CE15",
+       "Arn"
+      ]
+     }
+    ],
+    "ComparisonOperator": "GreaterThanThreshold",
+    "EvaluationPeriods": 1,
+    "MetricName": "TotalSize",
+    "Namespace": "Custom/S3",
+    "Period": 30,
+    "Statistic": "Sum",
+    "Threshold": 3072
+   },
+   "Metadata": {
+    "aws:cdk:path": "SecondStack/CleanerAlarm/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02Oy2rDQAxFvyX7sVrX3WSZFLILGOcDgjJWHdXzgJGMCcP8e/Cki6zOEfdK6Ava7z187nCVxo5z4/gG+aJoZ4OrXLNDfxsR8mkJVjkG8/Mb3r2n5FmEYyiG0UMeoqMtqOyjY/uovWrFSHdFEVKBwwYjHRwXO5MeUci4OAnkM2lie2KnlLbd97kY6+Iyrqj2DvngMPmtUqUUM5DEJVky9fpFceIw1Xf+g2L6h95j+OhgD227+xPmJi1B2RMMLz4BwhoG3xQBAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "SecondStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}
